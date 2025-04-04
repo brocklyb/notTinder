@@ -1,60 +1,95 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace OllamaIntegration
 {
-    
-
-
     class Program
     {
+        public class Message
+        {
+            public string role { get; set; }
+            public string content { get; set; }
+        }
+
+        public class OllamaResponse
+        {
+            public string model { get; set; }
+            public string created_at { get; set; }
+            public Message? message { get; set; }
+            public bool done { get; set; }
+        }
+
+
         static async Task Main(string[] args)
         {
-            List<string> test = new List<string>();
-            // Set up the HTTP client
-            HttpClient client = new HttpClient();
+            List<OllamaResponse> responses = new List<OllamaResponse>();
+            StringBuilder fullResponse = new StringBuilder();
 
-            // Ollama API endpoint
+            HttpClient client = new HttpClient();
             string ollamaApiUrl = "http://localhost:11434/api/chat";
 
-            // The request body
             var requestBody = new
             {
                 model = "mistral",
                 messages = new[]
                 {
-                new { role = "user", content = "how many letter in the word hello" }
-            },
+                    new { role = "user", content = "how many letters are in the word 'hello'?" }
+                },
+                stream = true,
                 max_tokens = 150
             };
 
-            // Serialize the body as JSON
             string jsonBody = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
             try
             {
-                HttpResponseMessage response = await client.PostAsync(ollamaApiUrl, content);
+                var request = new HttpRequestMessage(HttpMethod.Post, ollamaApiUrl)
+                {
+                    Content = content
+                };
+
+                HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
 
-                string responseBody = await response.Content.ReadAsStringAsync();
-                Console.WriteLine("Response from Ollama:");
-                //Console.WriteLine(responseBody);
-                test.Add(responseBody);
-                Console.WriteLine(test);
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var reader = new StreamReader(stream);
+
+                Console.WriteLine("AI response:\n");
+
+                while (!reader.EndOfStream)
+                {
+                    string? line = await reader.ReadLineAsync();
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    try
+                    {
+                        var chunk = JsonConvert.DeserializeObject<OllamaResponse>(line);
+                        if (chunk?.message?.content != null)
+                        {
+                            responses.Add(chunk);
+                            fullResponse.Append(chunk.message.content);
+                            Console.Write(chunk.message.content); // Optional: stream output live
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"⚠️ Skipped malformed JSON: {line}");
+                        Console.WriteLine($"   Error: {ex.Message}");
+                    }
+                }
+
+                Console.WriteLine("\n\nFinal Full Response:");
+                Console.WriteLine(fullResponse.ToString());
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-
-            foreach (var item in test)
-            {
-                Console.WriteLine(item);
+                Console.WriteLine($"❌ Error: {ex.Message}");
             }
         }
     }

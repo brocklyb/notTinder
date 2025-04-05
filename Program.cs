@@ -24,7 +24,6 @@ namespace OllamaIntegration
             public bool done { get; set; }
         }
 
-
         static async Task Main(string[] args)
         {
             List<OllamaResponse> responses = new List<OllamaResponse>();
@@ -33,12 +32,16 @@ namespace OllamaIntegration
             HttpClient client = new HttpClient();
             string ollamaApiUrl = "http://localhost:11434/api/chat";
 
+            
+            Console.Write("What would you like to ask? ");
+            string askAQuestion = Console.ReadLine();
+
             var requestBody = new
             {
                 model = "mistral",
                 messages = new[]
                 {
-                    new { role = "user", content = "how many letters are in the word 'hello'?" }
+                    new { role = "user", content = askAQuestion  }
                 },
                 stream = true,
                 max_tokens = 150
@@ -84,8 +87,8 @@ namespace OllamaIntegration
                     }
                 }
 
-                Console.WriteLine("\n\nFinal Full Response:");
-                Console.WriteLine(fullResponse.ToString());
+                //Console.WriteLine("\n\nFinal Full Response:");
+                //Console.WriteLine(fullResponse.ToString());
             }
             catch (Exception ex)
             {

@@ -32,8 +32,7 @@ namespace OllamaIntegration
             HttpClient client = new HttpClient();
             string ollamaApiUrl = "http://localhost:11434/api/chat";
 
-            
-            Console.Write("What would you like to ask? ");
+            Console.WriteLine("What would you like to ask? ");
             string askAQuestion = Console.ReadLine();
 
             var requestBody = new
